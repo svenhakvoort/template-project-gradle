@@ -90,113 +90,331 @@ task removePreviousJar {
     }
 }
 
-task deploy {
-    doLast {
-        ssh.run {
-            session(remotes.ev3dev) {
-                put from: "${projectDir}/build/libs/" + "${rootProject.name}" + "-" + version + ".jar", into: "/home/robot/"
+//task deploy {
+//    doLast {
+//        ssh.run {
+//            session(remotes.ev3dev) {
+//                put from: "${projectDir}/build/libs/" + "${rootProject.name}" + "-" + version + ".jar", into: "/home/robot/"
+//            }
+//        }
+//    }
+//}
+//
+//deploy.dependsOn clean, fatJar
+
+//task remoteRun {
+//    doLast {
+//        ssh.run {
+//            session(remotes.ev3dev) {
+//                println "time java -jar /home/robot/" + "${rootProject.name}" + "-" + version + ".jar "
+//                execute "time java -jar /home/robot/" + "${rootProject.name}" + "-" + version + ".jar "
+//            }
+//        }
+//    }
+//}
+
+//task remoteBrickRun {
+//    doLast {
+//        ssh.run {
+//            session(remotes.ev3dev) {
+//                println "time brickrun -- java -jar /home/robot/" + "${rootProject.name}" + "-" + version + ".jar "
+//                execute "time brickrun -- java -jar /home/robot/" + "${rootProject.name}" + "-" + version + ".jar "
+//            }
+//        }
+//    }
+//}
+
+//task remoteRunClassVerbose {
+//    doLast {
+//        ssh.run {
+//            session(remotes.ev3dev) {
+//                println "java -verbose:class -jar /home/robot/" + "${rootProject.name}" + "-" + version + ".jar "
+//                execute "java -verbose:class -jar /home/robot/" + "${rootProject.name}" + "-" + version + ".jar "
+//            }
+//        }
+//    }
+//}
+
+//task remoteSudoRun {
+//    doLast {
+//        ssh.run {
+//            session(remotes.ev3dev) {
+//                println "echo -e \"maker\" | sudo -S java -jar /home/robot/" + "${rootProject.name}" + "-" + version + ".jar"
+//                execute "echo -e \"maker\" | sudo -S java -jar /home/robot/" + "${rootProject.name}" + "-" + version + ".jar"
+//            }
+//        }
+//    }
+//}
+
+//task remoteProfilingRun {
+//    doLast {
+//        ssh.run {
+//            session(remotes.ev3dev) {
+//                println "brickrun -- java -Dcom.sun.management.jmxremote=true -Dcom.sun.management.jmxremote.port=7091 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -jar /home/robot/" + "${rootProject.name}" + "-" + version + ".jar "
+//                execute "brickrun -- java -Dcom.sun.management.jmxremote=true -Dcom.sun.management.jmxremote.port=7091 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -jar /home/robot/" + "${rootProject.name}" + "-" + version + ".jar "
+//            }
+//        }
+//    }
+//}
+//
+//task remoteProfilingSudoRun {
+//    doLast {
+//        ssh.run {
+//            session(remotes.ev3dev) {
+//                println "echo -e \"maker\" | sudo -S brickrun -- java -Dcom.sun.management.jmxremote=true -Dcom.sun.management.jmxremote.port=7091 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -jar /home/robot/" + "${rootProject.name}" + "-" + version + ".jar "
+//                execute "echo -e \"maker\" | sudo -S brickrun -- java -Dcom.sun.management.jmxremote=true -Dcom.sun.management.jmxremote.port=7091 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -jar /home/robot/" + "${rootProject.name}" + "-" + version + ".jar "
+//            }
+//        }
+//    }
+//}
+
+//task deployAndRun {
+//    doLast {
+//    }
+//}
+//deployAndRun.dependsOn deploy, remoteRun
+
+//task deployAndBrickRun {
+//    doLast {
+//    }
+//}
+//deployAndBrickRun.dependsOn deploy, remoteBrickRun
+
+//task deployAndSudoRun {
+//    doLast {
+//    }
+//}
+//deployAndSudoRun.dependsOn deploy, remoteSudoRun
+
+//task deployAndProfilingRun {
+//    doLast {
+//    }
+//}
+//deployAndProfilingRun.dependsOn deploy, remoteProfilingRun
+//
+//task deployAndProfilingSudoRun {
+//    doLast {
+//    }
+//}
+//deployAndProfilingSudoRun.dependsOn deploy, remoteProfilingSudoRun
+
+// Directory paths
+project.ext.externalJarsPath = "/home/robot/java/libraries"
+project.ext.userJarsPath = "/home/robot/java/programs"
+project.ext.userWrappersPath = "/home/robot"
+
+project.ext.userJarPath = {
+    def suffix = project.ext.slimJar ? "" : "-all";
+    return "${project.userJarsPath}/${rootProject.name}-${version}${suffix}.jar";
+}
+
+project.ext.userWrapperPath = {
+    def suffix = project.ext.slimJar ? "" : "-all";
+    return "${project.userWrappersPath}/${rootProject.name}-${version}${suffix}.sh";
+}
+
+ext.baseGroup = "ELJ-Basic"
+ext.remoteGroup = "ELJ-Remote"
+
+//////////////////
+// TASK HELPERS //
+//////////////////
+
+task templateWrapperSlim(type: Copy) {
+    from "${project.rootDir}/gradle/"
+    into "${project.rootDir}/build/"
+    include 'launcher-simple.sh.template'
+    rename { file -> 'launcher.sh' }
+    expand(mode: "jarpath", java_opts: "$jvmFlags", classpath: "${getSlimClassPath()}", mainclass: "$mainClass")
+}
+
+task templateWrapperFat(type: Copy) {
+    from "${project.rootDir}/gradle/"
+    into "${project.rootDir}/build/"
+    include 'launcher-simple.sh.template'
+    rename { file -> 'launcher.sh' }
+    expand(mode: "jarmain", java_opts: "$jvmFlags", jar: "${userJarPath()}")
+}
+
+/////////////////////////////////
+// Get classpath for a Slim JAR
+def getSlimClassPath() {
+    def dependenciesPath = "${project.userJarPath()}"
+
+    project.configurations.compileClasspath.each {
+        dependenciesPath += ":${project.externalJarsPath}/${it.name}"
+    }
+
+    return dependenciesPath
+}
+
+////////////////////////////////////////
+// Get command line for java execution
+// normal arguments:
+//  - deploy: whether to prepend the name with deployAnd or remote
+// named arguments:
+//  - sudo: add Sudo to name
+//  - brickrun: add Brick to name
+//  - verboseClass: add Classload to name
+//  - jmx: add Profiling to name
+def getTaskName(Map map, deploy = false) {
+    def name = ""
+
+    if (deploy) {
+        name += "deployAnd"
+    } else {
+        name += "remote"
+    }
+
+    if (map.jmx) {
+        name += "Profiling"
+    }
+    if (map.sudo) {
+        name += "Sudo"
+    }
+    if (map.brickrun) {
+        name += "Brick"
+    }
+    name += "Run"
+    if (map.verboseClass) {
+        name += "Classload"
+    }
+    return name
+}
+
+////////////////////////////////////////
+// Get command line for java execution
+// named arguments:
+//  - sudo: whether prepend java with sudo
+//  - time: whether prepend java with time
+//  - brickrun: whether to prepend java with brickrun
+//  - verboseClass: whether to debug class loading
+//  - jmx: whether to activate the management agent
+//  - slim: JAR type
+def getJavaCommand(Map map) {
+    def cmdLine = ""
+    if (map.sudo) {
+        cmdLine += "echo -e \"${project.brickPassword}\" | sudo -S "
+    }
+    if (map.time) {
+        cmdLine += "time "
+    }
+    if (map.brickrun) {
+        cmdLine += "brickrun -- "
+    }
+    cmdLine += "java "
+    if (map.verboseClass) {
+        cmdLine += "-Xlog:class+load=info,class+unload=info "
+    }
+    if (map.jmx) {
+        cmdLine += jmxFlags + " "
+    }
+    if (project.ext.slimJar) {
+        cmdLine += "-cp \"${getSlimClassPath()}\" ${project.mainClass}"
+    } else {
+        cmdLine += "-jar ${project.userJarPath(true)}"
+    }
+    return cmdLine
+}
+///////////////////
+// TASK CREATION //
+///////////////////
+
+//////////////////////
+// Create a Run task
+// named arguments:
+//  - sudo: is this a sudo run?
+//  - time: is this a timed run?
+//  - brickrun: is this a brickrun run?
+//  - verboseClass: is class loading debug wanted?
+//  - jmx: is JMX agent activation wanted?
+def createRunTask(Map map) {
+    def onlyRunName = getTaskName(map, false)
+    def andDeployName = getTaskName(map, true)
+
+    task "$andDeployName" {
+        group "${project.remoteGroup}"
+        dependsOn "deploy", "$onlyRunName"
+        doLast {}
+    }
+
+    task "$onlyRunName" {
+        group "${project.remoteGroup}"
+        doLast {
+            ssh.run {
+                session(remotes.ev3dev) {
+                    println("${getJavaCommand(map)}")
+                    execute("${getJavaCommand(map)}")
+                }
             }
         }
     }
 }
 
-deploy.dependsOn clean, fatJar
+/////////////////////////
+// Create a Deploy task
+// named arguments:
+//  - slim: deployment type
+def createDeployTask(Map map) {
+    def wrapperPath = userWrapperPath()
 
-task remoteRun {
-    doLast {
-        ssh.run {
-            session(remotes.ev3dev) {
-                println "time java -jar /home/robot/" + "${rootProject.name}" + "-" + version + ".jar "
-                execute "time java -jar /home/robot/" + "${rootProject.name}" + "-" + version + ".jar "
+    def artifactType, wrapperTask, jarName
+    if (project.ext.slimJar) {
+        artifactType = "jar"
+        wrapperTask = "templateWrapperSlim"
+        jarName = "${rootProject.name}-${project.version}.jar"
+    } else {
+        artifactType = "fatJar"
+        wrapperTask = "templateWrapperFat"
+        jarName = "${rootProject.name}-${project.version}-all.jar"
+    }
+
+    task "deploy" {
+        group "${project.remoteGroup}"
+        dependsOn clean, "$artifactType", "$wrapperTask"
+        doLast {
+            ssh.run {
+                session(remotes.ev3dev) {
+                    println("mkdir -p ${project.userJarsPath}/")
+                    execute("mkdir -p ${project.userJarsPath}/")
+                    println "Uploading $jarName"
+                    put from: "${project.rootDir}/build/libs/$jarName", into: "${project.userJarsPath}"
+                    put from: "${project.rootDir}/build/launcher.sh", into: "$wrapperPath"
+                    println("chmod +x \"$wrapperPath\"")
+                    execute("chmod +x \"$wrapperPath\"")
+                }
             }
         }
     }
 }
 
-task remoteBrickRun {
-    doLast {
-        ssh.run {
-            session(remotes.ev3dev) {
-                println "time brickrun -- java -jar /home/robot/" + "${rootProject.name}" + "-" + version + ".jar "
-                execute "time brickrun -- java -jar /home/robot/" + "${rootProject.name}" + "-" + version + ".jar "
+////////////////////////
+// Create a Basic task
+// normal arguments:
+//  - name: task name
+//  - command: command to be executed
+def createBasicTask(name, command) {
+    task "$name" {
+        group rootProject.baseGroup
+        doLast {
+            ssh.run {
+                session(remotes.ev3dev) {
+                    println("$command")
+                    execute("$command")
+                }
             }
         }
     }
 }
 
-task remoteRunClassVerbose {
-    doLast {
-        ssh.run {
-            session(remotes.ev3dev) {
-                println "java -verbose:class -jar /home/robot/" + "${rootProject.name}" + "-" + version + ".jar "
-                execute "java -verbose:class -jar /home/robot/" + "${rootProject.name}" + "-" + version + ".jar "
-            }
-        }
-    }
-}
+createDeployTask()
+createRunTask(time: true)
+createRunTask(time: true, brickrun: true)
+createRunTask(verboseClass: true)
+createRunTask(sudo: true)
+createRunTask(jmx: true, brickrun: true)
+createRunTask(jmx: true, brickrun: true, sudo: true)
 
-task remoteSudoRun {
-    doLast {
-        ssh.run {
-            session(remotes.ev3dev) {
-                println "echo -e \"maker\" | sudo -S java -jar /home/robot/" + "${rootProject.name}" + "-" + version + ".jar"
-                execute "echo -e \"maker\" | sudo -S java -jar /home/robot/" + "${rootProject.name}" + "-" + version + ".jar"
-            }
-        }
-    }
-}
-
-task remoteProfilingRun {
-    doLast {
-        ssh.run {
-            session(remotes.ev3dev) {
-                println "brickrun -- java -Dcom.sun.management.jmxremote=true -Dcom.sun.management.jmxremote.port=7091 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -jar /home/robot/" + "${rootProject.name}" + "-" + version + ".jar "
-                execute "brickrun -- java -Dcom.sun.management.jmxremote=true -Dcom.sun.management.jmxremote.port=7091 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -jar /home/robot/" + "${rootProject.name}" + "-" + version + ".jar "
-            }
-        }
-    }
-}
-
-task remoteProfilingSudoRun {
-    doLast {
-        ssh.run {
-            session(remotes.ev3dev) {
-                println "echo -e \"maker\" | sudo -S brickrun -- java -Dcom.sun.management.jmxremote=true -Dcom.sun.management.jmxremote.port=7091 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -jar /home/robot/" + "${rootProject.name}" + "-" + version + ".jar "
-                execute "echo -e \"maker\" | sudo -S brickrun -- java -Dcom.sun.management.jmxremote=true -Dcom.sun.management.jmxremote.port=7091 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -jar /home/robot/" + "${rootProject.name}" + "-" + version + ".jar "
-            }
-        }
-    }
-}
-
-task deployAndRun {
-    doLast {
-    }
-}
-deployAndRun.dependsOn deploy, remoteRun
-
-task deployAndBrickRun {
-    doLast {
-    }
-}
-deployAndBrickRun.dependsOn deploy, remoteBrickRun
-
-task deployAndSudoRun {
-    doLast {
-    }
-}
-deployAndSudoRun.dependsOn deploy, remoteSudoRun
-
-task deployAndProfilingRun {
-    doLast {
-    }
-}
-deployAndProfilingRun.dependsOn deploy, remoteProfilingRun
-
-task deployAndProfilingSudoRun {
-    doLast {
-    }
-}
-deployAndProfilingSudoRun.dependsOn deploy, remoteProfilingSudoRun
 
 //Organize tasks in a Group
 def groupName = "ev3dev-lang-java"
@@ -210,13 +428,13 @@ removePreviousJar.group = groupName
 deploy.group = groupName
 remoteBrickRun.group = groupName
 remoteRun.group = groupName
-remoteRunClassVerbose.group = groupName
+//remoteRunClassVerbose.group = groupName
 remoteSudoRun.group = groupName
-remoteProfilingRun.group = groupName
-remoteProfilingSudoRun.group = groupName
+//remoteProfilingRun.group = groupName
+//remoteProfilingSudoRun.group = groupName
 deployAndRun.group = groupName
 deployAndBrickRun.group = groupName
 deployAndSudoRun.group = groupName
-deployAndProfilingRun.group = groupName
-deployAndProfilingSudoRun.group = groupName
+//deployAndProfilingRun.group = groupName
+//deployAndProfilingSudoRun.group = groupName
 pkillJava.group = groupName

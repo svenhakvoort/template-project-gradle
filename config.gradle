@@ -1,7 +1,10 @@
 remotes {
     ev3dev {
-        host = '192.168.1.157'
+        host = 'ev3dev'
         user = 'robot'
         password = 'maker'
     }
 }
+project.ext.slimJar = true
+project.ext.jvmFlags = "-Xshare:on"
+project.ext.mainClass = "example.programming.FractalTree"

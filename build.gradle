@@ -43,7 +43,12 @@ task fatJar {
     doLast {
     }
 }
+shadowJar {
+    archiveFileName = "${rootProject.name}-${project.version}-all.jar"
+}
+
 fatJar.dependsOn shadowJar
 
 apply from: './config.gradle'
 apply from: './gradle/deploy.gradle'
+apply from: './gradle/installer.gradle'

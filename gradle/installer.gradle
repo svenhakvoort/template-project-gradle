@@ -1,0 +1,67 @@
+ssh.settings {
+    knownHosts = allowAnyHosts
+}
+
+def installerGroup = "ELJ-Installer"
+
+task getInstaller {
+    group installerGroup
+    doLast {
+        ssh.run {
+            session(remotes.ev3dev) {
+                println("echo -e \"${project.brickPassword}\" | sudo -S rm -rf /home/robot/installer")
+                execute("echo -e \"${project.brickPassword}\" | sudo -S rm -rf /home/robot/installer")
+                println("mkdir /home/robot/installer")
+                execute("mkdir /home/robot/installer")
+                println("wget -N https://raw.githubusercontent.com/ev3dev-lang-java/installer/master/installer.sh -P /home/robot/installer")
+                execute("wget -N https://raw.githubusercontent.com/ev3dev-lang-java/installer/master/installer.sh -P /home/robot/installer")
+                println("chmod +x /home/robot/installer/installer.sh")
+                execute("chmod +x /home/robot/installer/installer.sh")
+                println("/home/robot/installer/installer.sh help")
+                execute("/home/robot/installer/installer.sh help")
+            }
+        }
+    }
+}
+
+task installJava {
+    group installerGroup
+    doLast {
+        ssh.run {
+            session(remotes.ev3dev) {
+                println("echo -e \"${project.brickPassword}\" | sudo -S /home/robot/installer/installer.sh java")
+                execute("echo -e \"${project.brickPassword}\" | sudo -S /home/robot/installer/installer.sh java")
+            }
+        }
+    }
+}
+
+task javaVersion {
+    group installerGroup
+    doLast {
+        ssh.run {
+            session(remotes.ev3dev) {
+                println("java -version")
+                execute("java -version")
+            }
+        }
+    }
+}
+
+task installLibraries {
+    group installerGroup
+    doLast {
+        ssh.run {
+            session(remotes.ev3dev) {
+                println("rm -rf ${project.externalJarsPath}")
+                execute("rm -rf ${project.externalJarsPath}")
+                println("mkdir -p ${project.externalJarsPath}/")
+                execute("mkdir -p ${project.externalJarsPath}/")
+                project.configurations.compileClasspath.each {
+                    println "Uploading: ${it.name}"
+                    delegate.put from: it.path, into: "${project.externalJarsPath}"
+                }
+            }
+        }
+    }
+}
