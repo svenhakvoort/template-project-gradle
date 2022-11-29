@@ -7,4 +7,4 @@ remotes {
 }
 project.ext.slimJar = true
 project.ext.jvmFlags = "-Xshare:on"
-project.ext.mainClass = "example.programming.FractalTree"
+project.ext.mainClass = "example.robotics.ev3.actuator.WebcamExample"
