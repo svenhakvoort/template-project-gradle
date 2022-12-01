@@ -20,8 +20,6 @@ repositories {
 
 dependencies {
     implementation("org.slf4j:slf4j-simple:1.7.25")
-    implementation("com.github.downgoon:MarvinPlugins:1.5.5")
-    implementation("com.github.downgoon:MarvinFramework:1.5.5")
     implementation("org.openpnp:opencv:4.5.3-4")
     implementation("com.github.ev3dev-lang-java:ev3dev-lang-java:2.6.2-SNAPSHOT")
 }
