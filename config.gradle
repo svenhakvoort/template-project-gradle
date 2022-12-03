@@ -7,4 +7,6 @@ remotes {
 }
 project.ext.slimJar = true
 project.ext.jvmFlags = "-Xshare:on"
-project.ext.mainClass = "example.robotics.ev3.actuator.WebcamExample"
+project.ext.mainClass = "example.robotics.ev3.driving.AvoidObstaclesDriving"
+project.ext.brickPassword = 'maker'
+

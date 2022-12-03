@@ -68,6 +68,18 @@ task ev3devInfo {
     }
 }
 
+task sudoPkillJava {
+    doLast {
+        ssh.run {
+            session(remotes.ev3dev) {
+                println "echo -e \"${project.ext.brickPassword}\" | sudo -S | pkill java"
+                execute "echo -e maker | sudo -S | pkill java"
+            }
+        }
+    }
+}
+
+
 task pkillJava {
     doLast {
         ssh.run {
@@ -294,7 +306,7 @@ def getTaskName(Map map, deploy = false) {
 def getJavaCommand(Map map) {
     def cmdLine = ""
     if (map.sudo) {
-        cmdLine += "echo -e \"${project.brickPassword}\" | sudo -S "
+        cmdLine += "echo -e \"${project.ext.brickPassword}\" | sudo -S "
     }
     if (map.time) {
         cmdLine += "time "
